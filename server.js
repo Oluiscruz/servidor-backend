@@ -8,11 +8,15 @@ require('dotenv').config();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: ['https://oluisdev-frontend.netlify.app/'],
+    methods: ['GET','POST'],
+    credentials: true
+}));
 
 const saltRounds = 10;
 
-const mongoURI = 'mongodb://localhost:27017/cadastroDB';
+const mongoURI = process.env.MONGODB_URI;
 mongoose.connect(mongoURI)
     .then(() => console.log('Conectado ao MongoDB'))
     .catch(err => console.error('Erro ao conectar ao MongoDB:', err));
