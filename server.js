@@ -152,11 +152,25 @@ app.post('/login', async (req, res) => {
 });
 
 // Configuração do Nodemailer
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('Atenção: EMAIL_USER e/ou EMAIL_PASS não estão definidas. Defina as variáveis de ambiente no painel do Render (Environment > Environment Variables).');
+} 
+
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    }
+});
+
+// Verifica as credenciais do transporter na inicialização (ajuda no debug de autenticação)
+transporter.verify((err, success) => {
+    if (err) {
+        console.error('Falha ao verificar transporter do Nodemailer:', err && err.message ? err.message : err);
+        console.error('Verifique EMAIL_USER/EMAIL_PASS e se a conta do Gmail permite SMTP (use App Password se 2FA estiver ativo).');
+    } else {
+        console.log('Nodemailer configurado — transporter verificado.');
     }
 });
 
@@ -168,23 +182,25 @@ app.post('/enviar-mensagem', async (req, res) => {
         return res.status(400).json({ message: 'Todos os campos são obrigatórios!' });
     }
 
+    // Para evitar bloqueios do servidor SMTP (Gmail) ao usar remetente arbitrário,
+    // use o endereço autenticado como 'from' e coloque o email do usuário em 'replyTo'.
     const mailOptions = {
-        from: email,
+        from: process.env.EMAIL_USER || email,
+        replyTo: email,
         to: process.env.EMAIL_USER,
         subject: `${assunto} - ${nome}`,
-        text: `
-            Nome: ${nome}
-            Email: ${email}
-            Mensagem: ${mensagem}
-        `
+        text: `Nome: ${nome}\nEmail: ${email}\nMensagem: ${mensagem}`
     };
 
     try {
-        await transporter.sendMail(mailOptions);
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email enviado:', info && info.response ? info.response : info);
         res.status(200).json({ message: 'Mensagem enviada com sucesso!' });
     } catch (error) {
-        console.error('Erro ao enviar email:', error);
-        res.status(500).json({ message: 'Erro ao enviar mensagem.' });
+        // Log detalhado para diagnóstico (não retornar stack trace completo ao cliente)
+        console.error('Erro ao enviar email:', error && error.message ? error.message : error);
+        if (error && error.response) console.error('Resposta do SMTP:', error.response);
+        res.status(500).json({ message: 'Erro ao enviar mensagem. Confira os logs do servidor para mais detalhes.' });
     }
 });
 
