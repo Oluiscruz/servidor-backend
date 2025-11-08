@@ -26,9 +26,21 @@ app.use(cors({
 const saltRounds = 10;
 
 const mongoURI = process.env.MONGODB_URI;
+
+// Verifica se a variável de ambiente está definida antes de tentar conectar
+if (!mongoURI) {
+    console.error('MONGODB_URI não definido. Defina a variável de ambiente MONGODB_URI no painel do Render (Environment > Environment Variables) ou localmente no .env para desenvolvimento.');
+    process.exit(1);
+}
+
 mongoose.connect(mongoURI)
     .then(() => console.log('Conectado ao MongoDB'))
-    .catch(err => console.error('Erro ao conectar ao MongoDB:', err));
+    .catch(err => {
+        console.error('Erro ao conectar ao MongoDB:', err && err.message ? err.message : err);
+        console.error('Dica: esse erro normalmente ocorre quando o IP do servidor não está permitido no MongoDB Atlas (Network Access).\n' +
+            'No Atlas, abra Network Access -> Add IP Address e adicione o IP do Render ou (temporariamente) 0.0.0.0/0 para permitir acesso.\n' +
+            'Documentação: https://www.mongodb.com/docs/atlas/security/ip-access-list/');
+    });
 
 const userSchema = new mongoose.Schema({
 
